@@ -158,33 +158,30 @@ jobs:
          echo "CONFIG_VHOST_CROSS_ENDIAN_LEGACY=y" >> android-kernel/arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
          
          
-    - name: 开启lxc和docker配置
+    - name: 验证lxc和docker配置
       if: env.LXC_DOCKER == 'true'
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
-        wget --tries=5 --retry-connrefused --retry-on-http-error=429,500,502,503,504 --timeout=180 --waitretry=5 https://github.com/wu17481748/lxc-docker/releases/download/lxc-docker-2config/LXC-DOCKER-OPEN-CONFIG.sh
-        chmod 777 LXC-DOCKER-OPEN-CONFIG.sh
-        ./LXC-DOCKER-OPEN-CONFIG.sh android-kernel/arch/arm64/configs/${{ env.KERNEL_CONFIG }} -w
+        echo "验证 platina_defconfig 里的 Docker/LXC 配置..."
+        for k in CONFIG_CGROUP_DEVICE CONFIG_CGROUP_PIDS CONFIG_USER_NS CONFIG_PID_NS CONFIG_OVERLAY_FS CONFIG_VETH CONFIG_IP_VS CONFIG_MEMCG CONFIG_CFS_BANDWIDTH; do
+          if grep -q "^$k=y" android-kernel/arch/arm64/configs/${{ env.KERNEL_CONFIG }}; then
+            echo "OK   $k"
+          else
+            echo "MISSING   $k"
+          fi
+        done
 
-      
     - name: 打入lxc补丁
       if: env.LXC_PATCH == 'true'
       run: |
-       cd $GITHUB_WORKSPACE/kernel_workspace
-       wget --tries=5 --retry-connrefused --retry-on-http-error=429,500,502,503,504 --timeout=180 --waitretry=5 https://github.com/fate-think/LXC-DOCKER-KernelSU_Action/releases/download/1.0.0/runcpatch.sh
-       chmod a+x runcpatch.sh
-       if [ -f android-kernel/kernel/cgroup.c ]; then
-       ./runcpatch.sh android-kernel/kernel/cgroup.c               
-       fi
-       
-       if [ -f android-kernel/kernel/cgroup/cgroup.c ]; then
-       ./runcpatch.sh android-kernel/kernel/cgroup/cgroup.c               
-       fi
-       
-       if [ -f android-kernel/net/netfilter/xt_qtaguid.c ]; then
-         wget --tries=5 --retry-connrefused --retry-on-http-error=429,500,502,503,504 --timeout=180 --waitretry=5 https://github.com/wu17481748/lxc-docker/releases/download/lxc/lxc.patch
-         patch -p0 < lxc.patch
-       fi
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        echo "应用 LXC 补丁（使用仓库自带 patch 目录）..."
+        if [ -f kernel/cgroup/cgroup.c ]; then
+          patch -p1 --forward < $GITHUB_WORKSPACE/KernelSU/patch/cgroup.patch || echo "cgroup patch 已应用或跳过"
+        fi
+        if [ -f net/netfilter/xt_qtaguid.c ]; then
+          patch -p1 --forward < $GITHUB_WORKSPACE/KernelSU/patch/xt_qtaguid.patch || echo "xt_qtaguid patch 已应用或跳过"
+        fi
 
     - name: 关闭ANDROID_PARANOID_NETWORK配置
       if: env.ANDROID_PARANOID_NETWORK_OFF == 'true'
