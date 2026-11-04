@@ -200,6 +200,16 @@ jobs:
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s ${{ env.KERNELSU_TAG }}
         echo "UPLOADNAME=-KernelSU" >> $GITHUB_ENV
 
+    - name: 修复KernelSU 4.19兼容性
+      if: env.ENABLE_KERNELSU == 'true'
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        if [ -f KernelSU/kernel/core/init.c ]; then
+          sed -i '/MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);/d' KernelSU/kernel/core/init.c
+          echo "已移除 4.19 不支持的 MODULE_IMPORT_NS"
+          grep -n "MODULE_IMPORT_NS" KernelSU/kernel/core/init.c || echo "确认: 已无该宏"
+        fi
+
     - name: 开启KSU补充内核配置
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
