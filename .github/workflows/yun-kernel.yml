@@ -158,6 +158,19 @@ jobs:
          echo "CONFIG_VHOST_CROSS_ENDIAN_LEGACY=y" >> android-kernel/arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
          
          
+    - name: 修复platina DTS引用
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        DTS=arch/arm64/boot/dts/vendor/qcom
+        if [ -f $DTS/xiaomi/mi/platina/platina-sdm660.dtsi ]; then
+          perl -0pi -e 's#&pm660_coincell \{[^}]*\};#/* removed: pm660_coincell undefined */#g' $DTS/xiaomi/mi/platina/platina-sdm660.dtsi
+          echo "已处理 pm660_coincell"
+        fi
+        if [ -f $DTS/xiaomi/mi/sdm660-overlay.dtsi ]; then
+          perl -0pi -e 's#&sensor_information15 \{[^}]*\};#/* removed: sensor_information15 undefined */#g' $DTS/xiaomi/mi/sdm660-overlay.dtsi
+          echo "已处理 sensor_information15"
+        fi
+
     - name: 验证lxc和docker配置
       if: env.LXC_DOCKER == 'true'
       run: |
